@@ -21,93 +21,55 @@
 
 ;;; Code:
 
-(defun origize/center-line ()
-  "Center line horizontally by inserting spaces at the beginning
-of the line"
+(defun origize/strip-whitespace ()
   (interactive)
-  (origize/clear-left-indent)
-  (let ((left-indent (/ (- (window-width) (origize/char-count)) 2))
-        (start (point)))
-    (if (> left-indent 0)
-        (while (< (- (point) start) left-indent)
-          (insert " "))))
-  (end-of-line)
-  (if (eobp) (insert "
-")))
 
-(defun origize/clear-left-indent ()
-  (back-to-indentation)
-  (while (not (bolp))
-    (backward-delete-char 1)))
+  ;; remove trailing white space
+  (cleanup-buffer)
 
-(defun origize/char-count ()
+  ;; remove white space at start of lines
+  (goto-char (point-min))
+  (while (re-search-forward "^\s+" nil t)
+    (replace-match "" nil nil))
+
+  ;; remove white space at start of buffer
+  (goto-char (point-min))
+  (insert "\n")
+  (delete-blank-lines)
+  (delete-char 1))
+
+(defun origize/center-horizontally ()
+  (interactive)
+  (let ((fill-column (round (* (window-width) 0.8))))
+    (center-region (point-min) (point-max))))
+
+(defun origize/content-height ()
   (save-excursion
-    (back-to-indentation)
-    (let ((indentation (point)))
-      (search-forward-regexp "$" (origize/eolpos) t)
-      (while (and (not (bolp)) (looking-at "[\s]*$"))
-        (backward-char))
-      (1+ (- (point) indentation)))))
+    (goto-char (point-max))
+    (- (line-number-at-pos) 1)))
 
-(defun origize/eolpos ()
-  (save-excursion
-    (end-of-line)
-    (point)))
-
-(defun origize/safe-next-line ()
-  (end-of-line)
-  (if (not (eobp))
-      (progn (beginning-of-line) (next-line))))
-
-(defun origize/num-leading-blank-lines ()
-  (save-excursion
-    (beginning-of-buffer)
-    (let ((started)
-          (num-lines 0))
-      (while (not started)
-        (beginning-of-line)
-        (if (search-forward-regexp "^\s*$" (origize/eolpos) t)
-            (setq num-lines (1+ num-lines))
-          (setq started t))
-        (end-of-line)
-        (if (eobp) (setq started t))
-        (beginning-of-line)
-        (next-line))
-      num-lines)))
-
-(defun origize/pad-vertically ()
-  "Insert newlines at the beginning of the buffer until the
-content is vertically centered"
-  (let ((missing (- (window-height) (origize/num-leading-blank-lines)))
-        (i 0))
-    (beginning-of-buffer)
-    (while (< i missing)
-      (insert "
-")
-      (setq i (1+ i)))))
-
-(defun origize/center-buffer-vertically ()
-  (origize/pad-vertically)
-  (beginning-of-buffer)
-  (goto-line (1+ (origize/num-leading-blank-lines)))
-  (recenter-top-bottom))
+(defun origize/center-vertically ()
+  (interactive)
+  (let* ((page-center (/ (window-height) 2))
+         (content-center (/ (origize/content-height) 2))
+         (content-top (- page-center content-center 1)))
+    (while (< (point) content-top)
+      (insert "\n"))))
 
 (defun origize/recenter-buffer ()
-  "Indent content with spaces until content is positioned in
-horizontally centered"
   (interactive)
-  (beginning-of-buffer)
-  (while (not (eobp))
-    (origize/center-line)
-    (origize/safe-next-line))
-  (origize/center-buffer-vertically))
+  (origize/strip-whitespace)
+  (origize/center-horizontally)
+  (origize/center-vertically))
 
-(defun origize/zoom-frm-in ()
+(defun origize/zoom-in ()
   (interactive)
   (zoom-frm-in)
   (origize/recenter-buffer))
 
-(defun origize/zoom-frm-out ()
+(defun origize/zoom-out ()
   (interactive)
   (zoom-frm-out)
   (origize/recenter-buffer))
+
+(provide 'origize)
